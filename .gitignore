@@ -1,4 +1,4 @@
-.env
+news_bot_backend/.env
 .newsbotvenv
 .idea
 .vscode
