@@ -7,4 +7,4 @@ class Topic(Base):
     __tablename__ = "Topic"
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True, unique=True)
-    name=Column(String(255), nullable=False)
+    name=Column(String(50), nullable=False)

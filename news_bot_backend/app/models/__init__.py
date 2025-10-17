@@ -7,6 +7,7 @@ from .subscriptions import Subscriptions
 from .topic import Topic
 from .user import User
 from .user_sources import UserSources
+from .refresh_token import RefreshToken
 
 from .testmodel import TestTable
 

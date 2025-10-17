@@ -13,7 +13,7 @@ class Source(Base):
     id=Column(Integer, primary_key=True, autoincrement=True, index=True, unique=True)
     source_name=Column(String(100))
     source_url=Column(String(255), nullable=False)
-    language=Column(String(5))
+    language=Column(String(2))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, onupdate=datetime.utcnow)
 
