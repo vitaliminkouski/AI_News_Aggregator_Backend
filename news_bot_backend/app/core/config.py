@@ -1,6 +1,8 @@
 from typing import Optional
 
 from pydantic import Field
+from functools import lru_cache
+
 from pydantic_settings import BaseSettings
 
 
@@ -56,4 +58,7 @@ class Settings(BaseSettings):
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
-settings=Settings()
+@lru_cache
+def get_settings() -> Settings:
+    """Return cached settings instance."""
+    return Settings()
