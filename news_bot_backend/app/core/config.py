@@ -1,6 +1,8 @@
 from typing import Optional
 
 from pydantic import Field
+from functools import lru_cache
+
 from pydantic_settings import BaseSettings
 
 
@@ -26,6 +28,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     ALGORITHM: str = "HS256"
 
+    # ML services
+    ML_SERVICE_URL: str = Field(
+        default="http://ml-service:8100",
+        description="Base URL of the NewsAgent ML microservice.",
+    )
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -50,4 +58,7 @@ class Settings(BaseSettings):
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
-settings=Settings()
+@lru_cache
+def get_settings() -> Settings:
+    """Return cached settings instance."""
+    return Settings()

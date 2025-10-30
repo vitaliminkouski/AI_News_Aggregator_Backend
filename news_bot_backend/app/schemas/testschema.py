@@ -9,3 +9,5 @@ class TestCreate(TestBase):
 
 class TestReturn(TestBase):
     id: int
+
+    model_config = {"from_attributes": True}
