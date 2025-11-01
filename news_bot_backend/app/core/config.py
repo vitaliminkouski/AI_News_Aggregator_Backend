@@ -25,8 +25,15 @@ class Settings(BaseSettings):
     ASYNC_DATABASE_URL: Optional[str] = None
 
     SECRET_KEY: str = Field(..., min_length=32)
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    EMAIL_CONFIRM_EXPIRE_HOURS: int = 24
     ALGORITHM: str = "HS256"
+
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "%(levelname)s - %(asctime)s - %(name)s - %(message)s"
+
+    PROFILE_PHOTOS_DIR: str = "static/profile_photos"
 
     # ML services
     ML_SERVICE_URL: str = Field(

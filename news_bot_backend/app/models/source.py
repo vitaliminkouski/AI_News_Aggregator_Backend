@@ -4,7 +4,7 @@ from sqlalchemy import Column, Integer, VARCHAR, Boolean, DateTime, String, Text
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
-from app.models.user import User
+
 
 
 class Source(Base):
@@ -18,5 +18,7 @@ class Source(Base):
     updated_at = Column(DateTime, onupdate=datetime.utcnow)
 
     topic_id=Column(Integer, ForeignKey("Topic.id", ondelete="CASCADE", onupdate="CASCADE"))
-    topic=relationship(User, back_populates="topics")
+    topic=relationship("Topic", back_populates="sources")
+
+    sources = relationship("UserSources", back_populates="source")
 
