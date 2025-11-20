@@ -20,7 +20,7 @@ def verify_password(hashed_password: str, plain_password: str):
 def create_access_token(data: dict):
     to_encode=data.copy()
     expire=datetime.now(timezone.utc)+timedelta(settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"expire": expire})
+    to_encode.update({"expire": str(expire)})
     encoded_jwt=jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
@@ -30,14 +30,15 @@ def create_refresh_token(data: dict):
     jti=uuid.uuid4()
     to_encode.update(
         {
-            "expire": expire,
-            "jti": jti,
-            "scope": "refresh"
+            "exp": expire,
+            "jti": str(jti),
+            "scope": "refresh",
+            "type": "refresh"
         }
     )
 
     encoded_jwt=jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt, jti
+    return encoded_jwt, jti, expire
 
 def verify_jwt_token(token: str):
     credentials_exception=HTTPException(
@@ -56,4 +57,11 @@ def verify_jwt_token(token: str):
         return payload
     except JWTError:
         raise credentials_exception
+
+def decode_token(token: str):
+    try:
+        payload=jwt.decode(token=token, key=settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        return payload
+    except JWTError:
+        return None
 

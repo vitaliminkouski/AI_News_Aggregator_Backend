@@ -1,92 +1,149 @@
-import uuid
-from pathlib import Path
+from datetime import datetime, timezone
 
-import aiofiles
-from fastapi import APIRouter, HTTPException, UploadFile, Form
-from fastapi.params import Depends, File
-from pydantic import EmailStr
+from fastapi import APIRouter, Depends, HTTPException, Form
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
-from app.core.config import get_settings
 from app.core.logging_config import get_logger
 from app.db.database import get_db
-from app.models import User
-from app.schemas.user_schemas import UserReturn, UserCreate
-from app.services.security import hash_password
+from app.models import User, RefreshToken
+from app.schemas.token import Token
+from app.services.security import verify_password, create_access_token, create_refresh_token, hash_password, \
+    decode_token
 
-logger=get_logger(__name__)
-router = APIRouter(prefix="/auth")
+router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = get_logger(__name__)
 
-settings=get_settings()
 
-@router.post("/register/", response_model=UserReturn, status_code=status.HTTP_201_CREATED)
-async def register_user(username: str = Form(...),
-                        email: EmailStr = Form(...),
-                        first_name: str = Form(None),
-                        last_name: str = Form(None),
-                        scan_period: int = Form(3),
-                        password: str = Form(min_length=8),
-                        profile_photo: UploadFile = File(...),
-                        db: AsyncSession = Depends(get_db)):
+@router.post("/login/", response_model=Token)
+async def login(form_data: OAuth2PasswordRequestForm = Depends(),
+                db: AsyncSession = Depends(get_db)):
+    logger.info("Starting log in")
+    result = await db.execute(select(User).where(
+        (User.username == form_data.username) | (User.email == form_data.username)
+    ))
+    user = result.scalar_one_or_none()
+
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        logger.warning("Incorrect password or username")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect password or username",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    access_token = create_access_token({"sub": str(user.id)})
+    refresh_token, jti, expire = create_refresh_token({"sub": str(user.id)})
+
     try:
-        logger.info(f"Registration attempt for username {username}")
-        user = await db.execute(select(User).where(
-            (User.username == username) | (User.email == email)))
 
-        if user.scalar_one_or_none():
-            logger.warning(f"Registration failed: username or email already exists")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username or email already exists"
+        db_refresh_token = RefreshToken(
+            hashed_token=refresh_token,
+            jti=jti,
+            user_id=user.id,
+            expires_at=expire
         )
-
-        # Save profile photo
-        file_extension=Path(profile_photo.filename).suffix
-        unique_filename=f"{uuid.uuid4()}{file_extension}"
-        file_path=f"{settings.PROFILE_PHOTOS_DIR}/{unique_filename}"
-
-        try:
-            Path(settings.PROFILE_PHOTOS_DIR).mkdir(parents=True, exist_ok=True)
-            async with aiofiles.open(file_path, "wb") as f:
-                while contents := await profile_photo.read(1024 * 1024):
-                    await f.write(contents)
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"There was an error uploading the file: {e}"
-            )
-
-        # Create user in db
-
-        user=User(
-            username=username,
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-            scan_period=scan_period,
-            profile_photo=file_path,
-            hashed_password=hash_password(password)
-        )
-        db.add(user)
+        db.add(db_refresh_token)
         await db.commit()
-        await db.refresh(user)
-
-        logger.info(f"User {user.username} successfully registered")
-
-        return UserReturn(
-            id=user.id,
-            username=user.username,
-            email=user.email,
-            first_name=user.first_name,
-            last_name=user.last_name,
-            scan_period=user.scan_period,
-        )
+        await db.refresh(db_refresh_token)
+        logger.info("Refresh token has been created")
+        return {
+            "access": access_token,
+            "refresh": refresh_token,
+            "token_type": "bearer"
+        }
     except Exception as e:
-        logger.error(f"Registration error: {str(e)}")
+        logger.error(f"Error during creating refresh token in database: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Something went wrong: {str(e)}"
+            detail="Error during creating refresh token in database"
         )
 
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token_endpoint(
+        refresh_token: str = Form(...),
+        db: AsyncSession = Depends(get_db)
+):
+    payload = decode_token(refresh_token)
+    if not payload or payload.get("scope") != "refresh":
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    jti = payload.get("jti")
+    user_id = payload.get("sub")
+
+    result = await db.execute(select(RefreshToken).where(RefreshToken.jti == jti))
+    stored_token = result.scalar_one_or_none()
+
+    if not stored_token:
+        raise HTTPException(status_code=401, detail="Refresh token not found")
+
+    if stored_token.is_revoked:
+        logger.warning("Token revoked")
+        raise HTTPException(status_code=401, detail="Token revoked")
+
+    if not verify_password(refresh_token, stored_token.hashed_token):
+        logger.warning("Invalid token signature")
+        raise HTTPException(status_code=401, detail="Invalid token signature")
+
+
+
+
+    new_access_token = create_access_token(data={"sub": user_id})
+
+
+    return {
+        "access": new_access_token,
+        "refresh": refresh_token,
+        "token_type": "bearer"
+    }
+
+
+@router.post("/logout")
+async def logout(
+        refresh_token: str = Form(...),
+        db: AsyncSession = Depends(get_db)
+):
+
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid refresh token"
+    )
+
+    payload = decode_token(refresh_token)
+    if not payload or payload.get("scope") != "refresh":  #
+        raise credentials_exception
+
+    jti = payload.get("jti")
+    if not jti:
+        logger.error("Invalid refresh token")
+        raise credentials_exception
+
+    result = await db.execute(select(RefreshToken).where(RefreshToken.jti == jti))  #
+    stored_token = result.scalar_one_or_none()
+
+    if not stored_token:
+        logger.error("Token doesn't exist in DB")
+        raise credentials_exception
+
+    if stored_token.is_revoked:
+        return {"detail": "Successfully logged out"}
+
+
+    if not verify_password(refresh_token, stored_token.hashed_token):  #
+        raise credentials_exception
+
+    try:
+        stored_token.is_revoked = True
+        await db.delete(stored_token)
+        await db.commit()
+    except:
+        logger.error("Can't delete refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Can't delete refresh token"
+        )
+
+    return {"detail": "Successfully logged out"}
