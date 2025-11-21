@@ -1,6 +1,14 @@
 version: "3.9"
 
 services:
+  redis:
+    image: redis:7
+    container_name: newsbot_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - newsbot_network
+
   postgres:
     image: postgres:16-alpine
     container_name: newsbot_postgres
@@ -42,6 +50,10 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
       ALGORITHM: ${ALGORITHM}
+      ML_SERVICE_URL: ${ML_SERVICE_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+      INGEST_CRON: ${INGEST_CRON}
 
       PYTHONPATH: /app
     ports:
@@ -52,6 +64,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - newsbot_network
     command: >
@@ -63,6 +77,73 @@ services:
               echo 'Starting ${APP_NAME} API server...' &&
               uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
             "
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: newsbot_worker
+    environment:
+      APP_NAME: ${APP_NAME}
+      VERSION: ${VERSION}
+      ENVIRONMENT: ${ENVIRONMENT}
+      DEBUG: ${DEBUG}
+      API_PREFIX: ${API_PREFIX}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SECRET_KEY: ${SECRET_KEY}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
+      ALGORITHM: ${ALGORITHM}
+      ML_SERVICE_URL: ${ML_SERVICE_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+      INGEST_CRON: ${INGEST_CRON}
+      PYTHONPATH: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - newsbot_network
+    command: >
+      celery -A app.celery_app:celery_app worker --loglevel=info
+
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: newsbot_beat
+    environment:
+      APP_NAME: ${APP_NAME}
+      VERSION: ${VERSION}
+      ENVIRONMENT: ${ENVIRONMENT}
+      DEBUG: ${DEBUG}
+      API_PREFIX: ${API_PREFIX}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SECRET_KEY: ${SECRET_KEY}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
+      ALGORITHM: ${ALGORITHM}
+      ML_SERVICE_URL: ${ML_SERVICE_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+      INGEST_CRON: ${INGEST_CRON}
+      PYTHONPATH: /app
+    depends_on:
+      redis:
+        condition: service_started
+    networks:
+      - newsbot_network
+    command: >
+      celery -A app.celery_app:celery_app beat --loglevel=info
+
 volumes:
   postgres_data:
 networks:

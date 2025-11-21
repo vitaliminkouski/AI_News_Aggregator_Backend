@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Optional
 
 from pydantic import Field
@@ -41,6 +42,13 @@ class Settings(BaseSettings):
         description="Base URL of the NewsAgent ML microservice.",
     )
 
+    CELERY_BROKER_URL: str = Field(default="redis://redis:6379/0")
+    CELERY_RESULT_BACKEND: str = Field(default="redis://redis:6379/1")
+    INGEST_CRON: str = Field(
+        default="*/15 * * * *",
+        description="Crontab expression for automatic ingestion schedule.",
+    )
+
     class Config:
         env_file = ".env.local"
         env_file_encoding = "utf-8"
@@ -67,5 +75,7 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Return cached settings instance."""
     return Settings()
+
+
+settings = get_settings()
