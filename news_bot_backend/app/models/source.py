@@ -6,7 +6,6 @@ from sqlalchemy.orm import relationship
 from app.db.database import Base
 
 
-
 class Source(Base):
     __tablename__="Source"
 
@@ -20,5 +19,6 @@ class Source(Base):
     topic_id=Column(Integer, ForeignKey("Topic.id", ondelete="CASCADE", onupdate="CASCADE"))
     topic=relationship("Topic", back_populates="sources")
 
-    sources = relationship("UserSources", back_populates="source")
+    user_sources = relationship("UserSources", back_populates="source")
+    articles=relationship("Articles", back_populates="source")
 

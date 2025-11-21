@@ -5,6 +5,8 @@ from starlette.staticfiles import StaticFiles
 from app.api.v1.testroutes import router as test_router
 from app.api.v1.register_route import router as register_router
 from app.api.v1.auth_routes import router as auth_router
+from app.api.v1.news_routes import router as news_router
+
 from app.core.logging_config import setup_logging, get_logger
 
 setup_logging()
@@ -16,6 +18,8 @@ app=FastAPI()
 app.include_router(test_router)
 app.include_router(register_router)
 app.include_router(auth_router)
+app.include_router(news_router)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
