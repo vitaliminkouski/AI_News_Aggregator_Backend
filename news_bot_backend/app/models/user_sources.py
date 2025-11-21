@@ -4,8 +4,6 @@ from sqlalchemy import Column, Integer, VARCHAR, Boolean, DateTime, String, Text
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
-from app.models.source import Source
-from app.models.user import User
 
 
 class UserSources(Base):
@@ -18,8 +16,8 @@ class UserSources(Base):
     subscribed_at=Column(DateTime, default=datetime.utcnow)
 
     user_id=Column(Integer, ForeignKey("User.id", ondelete="CASCADE", onupdate="CASCADE"))
-    user=relationship(User, back_populates="user_sources")
+    user=relationship("User", back_populates="user_sources")
 
     source_id=Column(Integer, ForeignKey("Source.id", ondelete="CASCADE", onupdate="CASCADE"))
-    source=relationship(Source, back_populates="sources")
+    source=relationship("Source", back_populates="user_sources")
 

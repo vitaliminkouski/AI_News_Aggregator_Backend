@@ -6,8 +6,7 @@ from sqlalchemy.orm import relationship
 from app.db.database import Base
 from app.models.group import Group
 from app.models.permission import Permission
-from app.models.source import Source
-from app.models.user import User
+
 
 
 class Articles(Base):
@@ -21,7 +20,5 @@ class Articles(Base):
     fetched_at = Column(DateTime, default=datetime.utcnow)
 
     source_id = Column(Integer, ForeignKey("Source.id", ondelete="CASCADE", onupdate="CASCADE"))
-    source = relationship(Source)
+    source = relationship("Source", back_populates="articles")
 
-    user_id = Column(Integer, ForeignKey("User.id", ondelete="CASCADE", onupdate="CASCADE"))
-    user = relationship(User, back_populates="articles")
