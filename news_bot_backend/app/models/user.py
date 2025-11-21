@@ -16,7 +16,6 @@ class User(Base):
     profile_photo = Column(String(255))
     is_verified = Column(Boolean, default=False)
     joined_at = Column(DateTime, default=datetime.utcnow)
-    bio = Column(Text)
     scan_period = Column(Integer, default=3)
     hashed_password = Column(String(255), nullable=False)
 

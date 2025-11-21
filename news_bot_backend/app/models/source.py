@@ -24,4 +24,3 @@ class Source(Base):
     user_sources = relationship("UserSources", back_populates="source")
     articles=relationship("Articles", back_populates="source")
 
-    articles = relationship("Articles", back_populates="source")

@@ -28,5 +28,4 @@ class Articles(Base):
     source_id = Column(Integer, ForeignKey("Source.id", ondelete="CASCADE", onupdate="CASCADE"))
     source = relationship("Source", back_populates="articles")
 
-    user_id = Column(Integer, ForeignKey("User.id", ondelete="CASCADE", onupdate="CASCADE"))
-    user = relationship("User", back_populates="articles")
+
