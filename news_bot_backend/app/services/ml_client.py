@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 import httpx
 from pydantic import BaseModel
 
-from app.core.config import settings
+from app.core.config import get_settings
 
 
 class MLServiceError(Exception):
@@ -41,9 +41,11 @@ class MLClient:
         base_url: str,
         *,
         timeout: Optional[httpx.Timeout] = None,
+        client: Optional[httpx.AsyncClient] = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout or httpx.Timeout(30.0, connect=5.0)
+        self._client = client
 
     async def summarize(
         self,
@@ -77,15 +79,18 @@ class MLClient:
 
     async def _post(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         url = f"{self.base_url}{path}"
+        client = self._client or httpx.AsyncClient(timeout=self.timeout)
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(url, json=payload)
+            response = await client.post(url, json=payload)
         except httpx.HTTPError as exc:  # pragma: no cover - network failure guard
             raise MLServiceError(f"Failed to reach ML service at {url}") from exc
+        finally:
+            if self._client is None:
+                await client.aclose()
 
         if response.status_code >= 400:
             raise MLServiceError(f"ML service returned {response.status_code}: {response.text}")
         return response.json()
 
 
-ml_client = MLClient(settings.ML_SERVICE_URL)
+ml_client = MLClient(get_settings().ML_SERVICE_URL)
