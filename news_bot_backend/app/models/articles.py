@@ -4,6 +4,9 @@ from sqlalchemy import Column, Integer, DateTime, String, Text, ForeignKey, Floa
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
+from app.models.group import Group
+from app.models.permission import Permission
+
 
 
 class Articles(Base):

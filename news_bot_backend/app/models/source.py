@@ -18,7 +18,10 @@ class Source(Base):
     is_active = Column(Boolean, default=True)
     last_fetched_at = Column(DateTime)
 
-    topic_id = Column(Integer, ForeignKey("Topic.id", ondelete="CASCADE", onupdate="CASCADE"))
-    topic = relationship("Topic", backref="sources")
+    topic_id=Column(Integer, ForeignKey("Topic.id", ondelete="CASCADE", onupdate="CASCADE"))
+    topic=relationship("Topic", back_populates="sources")
+
+    user_sources = relationship("UserSources", back_populates="source")
+    articles=relationship("Articles", back_populates="source")
 
     articles = relationship("Articles", back_populates="source")
