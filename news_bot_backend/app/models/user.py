@@ -22,3 +22,4 @@ class User(Base):
     hosted_groups = relationship("Group", back_populates="owner")
     user_sources = relationship("UserSources", back_populates="user")
     refresh_tokens = relationship("RefreshToken", back_populates="user")
+
