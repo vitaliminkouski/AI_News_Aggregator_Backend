@@ -40,7 +40,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(),
     try:
 
         db_refresh_token = RefreshToken(
-            hashed_token=refresh_token,
+            hashed_token=hash_password(refresh_token),
             jti=jti,
             user_id=user.id,
             expires_at=expire
@@ -62,7 +62,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(),
         )
 
 
-@router.post("/refresh", response_model=Token)
+@router.post("/refresh/", response_model=Token)
 async def refresh_token_endpoint(
         refresh_token: str = Form(...),
         db: AsyncSession = Depends(get_db)
@@ -136,7 +136,6 @@ async def logout(
         raise credentials_exception
 
     try:
-        stored_token.is_revoked = True
         await db.delete(stored_token)
         await db.commit()
     except:
