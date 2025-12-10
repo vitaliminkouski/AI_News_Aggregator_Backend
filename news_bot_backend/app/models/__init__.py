@@ -9,7 +9,6 @@ from .user import User
 from .user_sources import UserSources
 from .refresh_token import RefreshToken
 
-from .testmodel import TestTable
 
 __all__=[
     "Articles",

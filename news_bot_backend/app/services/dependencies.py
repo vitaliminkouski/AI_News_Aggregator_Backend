@@ -49,3 +49,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error during access database"
         )
+
+async def get_superuser(current_user: User = Depends(get_current_user)) -> User:
+    if not current_user.is_super:
+        logger.warning(f"User {current_user.id} attempted to access superuser-only endpoint")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Superuser access required"
+        )
+    return current_user

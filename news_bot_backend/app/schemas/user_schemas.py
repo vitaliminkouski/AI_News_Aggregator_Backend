@@ -17,6 +17,29 @@ class UserReturn(UserBase):
 
     model_config = {"from_attributes": True}
 
+
+class ProfileRead(BaseModel):
+    id: int
+    email: str
+    username: str
+    first_name: str | None = None
+    last_name: str | None = None
+    scan_period: int = 3
+    profile_photo: str | None = None
+    is_super: bool | None=None
+
+    model_config = {"from_attributes": True}
+
+
+class ProfileUpdate(BaseModel):
+    username: str
+    email: EmailStr | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    scan_period: int | None = None
+
+    model_config = {"from_attributes": True}
+
 class LoginRequest(BaseModel):
     username: str
     password: str

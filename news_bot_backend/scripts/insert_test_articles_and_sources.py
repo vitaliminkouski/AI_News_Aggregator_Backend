@@ -100,4 +100,4 @@ async def insert_test_user_sources():
         await db.refresh(new_user_source)
 # asyncio.run(insert_test_sources())
 # asyncio.run(insert_test_articles())
-asyncio.run(insert_test_user_sources())
+# asyncio.run(insert_test_user_sources())
