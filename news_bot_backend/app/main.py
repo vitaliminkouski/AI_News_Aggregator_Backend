@@ -2,12 +2,13 @@ import uvicorn
 from fastapi import FastAPI
 from starlette.staticfiles import StaticFiles
 
-from app.api.v1.testroutes import router as test_router
 from app.api.v1.register_route import router as register_router
 from app.api.v1.auth_routes import router as auth_router
 from app.api.v1.news_routes import router as news_router
 from app.api.v1.articles import router as articles_router
-from app.api.v1.sources import router as source_router
+from app.api.v1.source_router import router as source_router
+from app.api.v1.profile_routes import router as profile_router
+from app.api.v1.topic_routes import router as topic_router
 
 from app.core.logging_config import setup_logging, get_logger
 
@@ -17,12 +18,13 @@ logger=get_logger(__name__)
 logger.info("News Bot API starting up...")
 
 app=FastAPI()
-app.include_router(test_router)
 app.include_router(register_router)
 app.include_router(auth_router)
 app.include_router(news_router)
 app.include_router(articles_router)
 app.include_router(source_router)
+app.include_router(profile_router)
+app.include_router(topic_router)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
