@@ -26,6 +26,7 @@ class ProfileRead(BaseModel):
     last_name: str | None = None
     scan_period: int = 3
     profile_photo: str | None = None
+    is_verified: bool
     is_super: bool | None=None
 
     model_config = {"from_attributes": True}

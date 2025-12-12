@@ -43,6 +43,7 @@ async def get_profile(
         first_name=user.first_name,
         last_name=user.last_name,
         is_super=user.is_super,
+        is_verified=user.is_verified,
         scan_period=user.scan_period,
         profile_photo=user.profile_photo
     )

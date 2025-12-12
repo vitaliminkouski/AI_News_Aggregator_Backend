@@ -1,5 +1,5 @@
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.openapi.utils import get_openapi
 from starlette.staticfiles import StaticFiles
 
@@ -10,6 +10,9 @@ from app.api.v1.articles import router as articles_router
 from app.api.v1.source_router import router as source_router
 from app.api.v1.profile_routes import router as profile_router
 from app.api.v1.topic_routes import router as topic_router
+from app.api.v1.user_source_router import router as user_source_router
+from app.api.v1.email_routes import router as email_router
+from app.api.v1.admin_user_router import router as admin_user_router
 
 from app.core.logging_config import setup_logging, get_logger
 
@@ -20,6 +23,7 @@ logger.info("News Bot API starting up...")
 
 app = FastAPI()
 
+api_v1=APIRouter(prefix="/api/v1")
 
 def custom_openapi():
     if app.openapi_schema:
@@ -79,13 +83,18 @@ def custom_openapi():
 
 app.openapi = custom_openapi
 
-app.include_router(register_router)
-app.include_router(auth_router)
-app.include_router(news_router)
-app.include_router(articles_router)
-app.include_router(source_router)
-app.include_router(profile_router)
-app.include_router(topic_router)
+api_v1.include_router(register_router)
+api_v1.include_router(auth_router)
+api_v1.include_router(news_router)
+api_v1.include_router(articles_router)
+api_v1.include_router(source_router)
+api_v1.include_router(profile_router)
+api_v1.include_router(topic_router)
+api_v1.include_router(user_source_router)
+api_v1.include_router(email_router)
+api_v1.include_router(admin_user_router)
+
+app.include_router(api_v1)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -96,4 +105,4 @@ def index():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="127.0.0.0", port=8000)

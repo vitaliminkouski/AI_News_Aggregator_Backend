@@ -72,3 +72,13 @@ def decode_token(token: str):
         return payload
     except JWTError:
         return None
+
+
+def create_email_verification_token(user_id: int, email: str) -> str:
+    to_encode = {
+        "sub": str(user_id),
+        "email": email,
+        "type": "email_verification",
+        "exp": datetime.now(timezone.utc) + timedelta(hours=settings.EMAIL_CONFIRM_EXPIRE_HOURS),
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
