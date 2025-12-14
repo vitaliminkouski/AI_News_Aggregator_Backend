@@ -17,7 +17,12 @@ async def send_email(to_email: str, subject: str, html_content: str, text_conten
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
+    
+    # Format: "Display Name <email@example.com>"
+    from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
+    from_name = settings.APP_NAME  # Use app name as display name
+    msg["From"] = f"{from_name} <{from_email}>"
+    
     msg["To"] = to_email
 
     if text_content:
@@ -43,7 +48,7 @@ async def send_email(to_email: str, subject: str, html_content: str, text_conten
 
 async def send_verification_email(email: str, username: str, verification_token: str) -> bool:
     """Send email verification link to user."""
-    verification_url = f"{settings.FRONTEND_URL}/verify-email?token={verification_token}"
+    verification_url = f"{settings.BACKEND_URL}/verify-email?token={verification_token}"
 
     subject = f"Verify your {settings.APP_NAME} account"
 
