@@ -82,3 +82,13 @@ def create_email_verification_token(user_id: int, email: str) -> str:
         "exp": datetime.now(timezone.utc) + timedelta(hours=settings.EMAIL_CONFIRM_EXPIRE_HOURS),
     }
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def create_password_reset_token(user_id: int, email: str) -> str:
+    to_encode = {
+        "sub": str(user_id),
+        "email": email,
+        "type": "password_reset",
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1),  # Token expires in 1 hour
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)

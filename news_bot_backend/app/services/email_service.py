@@ -98,3 +98,57 @@ async def send_verification_email(email: str, username: str, verification_token:
     """
 
     return await send_email(email, subject, html_content, text_content)
+
+
+async def send_password_reset_email(email: str, username: str, reset_token: str) -> bool:
+    """Send password reset link to user."""
+    reset_url = f"{settings.BACKEND_URL}/reset-password?token={reset_token}"
+
+    subject = f"Reset Your {settings.APP_NAME} Password"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>Reset Your Password</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #FF6B6B;">Password Reset Request</h2>
+            <p>Hello {username},</p>
+            <p>We received a request to reset your password. Click the button below to reset it:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{reset_url}" 
+                   style="background-color: #FF6B6B; color: white; padding: 12px 30px; 
+                          text-decoration: none; border-radius: 5px; display: inline-block;">
+                    Reset Password
+                </a>
+            </div>
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #666;">{reset_url}</p>
+            <p><strong>This link will expire in 1 hour.</strong></p>
+            <p>If you didn't request a password reset, please ignore this email. Your password will remain unchanged.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #999; font-size: 12px;">© {settings.APP_NAME}</p>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_content = f"""
+    Password Reset Request
+
+    Hello {username},
+
+    We received a request to reset your password. Visit the following link to reset it:
+    {reset_url}
+
+    This link will expire in 1 hour.
+
+    If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
+
+    © {settings.APP_NAME}
+    """
+
+    return await send_email(email, subject, html_content, text_content)

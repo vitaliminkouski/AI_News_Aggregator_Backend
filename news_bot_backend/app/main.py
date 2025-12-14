@@ -13,6 +13,7 @@ from app.api.v1.topic_routes import router as topic_router
 from app.api.v1.user_source_router import router as user_source_router
 from app.api.v1.email_routes import router as email_router
 from app.api.v1.admin_user_router import router as admin_user_router
+from app.api.v1.password_reset_routes import router as password_reset_router
 
 from app.core.logging_config import setup_logging, get_logger
 
@@ -93,6 +94,7 @@ api_v1.include_router(topic_router)
 api_v1.include_router(user_source_router)
 api_v1.include_router(email_router)
 api_v1.include_router(admin_user_router)
+api_v1.include_router(password_reset_router)
 
 app.include_router(api_v1)
 
