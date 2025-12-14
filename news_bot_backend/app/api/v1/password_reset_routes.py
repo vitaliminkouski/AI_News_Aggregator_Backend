@@ -10,7 +10,7 @@ from app.services.dependencies import logger, get_current_user
 from app.services.email_service import send_password_reset_email
 from app.services.security import create_password_reset_token, decode_token, hash_password
 
-router = APIRouter( tags=["Password recovery"])
+router = APIRouter(tags=["Password recovery"])
 
 
 @router.post("/forgot-password/", response_model=PasswordResetResponse, status_code=status.HTTP_200_OK)
