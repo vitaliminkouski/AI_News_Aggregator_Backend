@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     EMAIL_CONFIRM_EXPIRE_HOURS: int = 24
     ALGORITHM: str = "HS256"
 
+    SMTP_HOST: str = Field(default="smtp.gmail.com")
+    SMTP_PORT: int = Field(default=587)
+    SMTP_USER: str = Field(default="")
+    SMTP_PASSWORD: str = Field(default="")
+    SMTP_FROM_EMAIL: str = Field(default="")
+    BACKEND_URL: str
+
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "%(levelname)s - %(asctime)s - %(name)s - %(message)s"
 

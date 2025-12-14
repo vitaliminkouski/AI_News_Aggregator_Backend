@@ -27,8 +27,6 @@ async def get_profile(
         user: User = Depends(get_current_user)
 ) -> ProfileRead:
 
-
-
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -43,6 +41,7 @@ async def get_profile(
         first_name=user.first_name,
         last_name=user.last_name,
         is_super=user.is_super,
+        is_verified=user.is_verified,
         scan_period=user.scan_period,
         profile_photo=user.profile_photo
     )
@@ -59,7 +58,6 @@ async def update_profile(
         profile_photo: UploadFile | None = File(None)
 ) -> ProfileRead:
 
-
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -70,7 +68,7 @@ async def update_profile(
         # Update email if provided and check for duplicates
         if email is not None and email != user.email:
             existing_user = await db.execute(
-                select(User).where(User.email == email, User.id != user_id)
+                select(User).where(User.email == email, User.id != user.id)  # Fixed: user.id
             )
             if existing_user.scalar_one_or_none():
                 raise HTTPException(
@@ -140,4 +138,56 @@ async def update_profile(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating profile: {str(e)}"
+        )
+
+
+@router.delete("/", status_code=status.HTTP_200_OK)
+async def delete_account(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Delete the current user's account and all associated data."""
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    try:
+        user_id = user.id
+        username = user.username
+        
+        # Delete profile photo if exists
+        if user.profile_photo:
+            photo_path = Path(user.profile_photo)
+            if photo_path.exists():
+                try:
+                    photo_path.unlink()
+                    logger.info(f"Deleted profile photo for user {user_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete profile photo for user {user_id}: {e}")
+
+        # Delete user from database
+        # CASCADE will automatically delete:
+        # - UserSources
+        # - RefreshToken
+        # - Subscriptions
+        # - GroupPermissions
+        # - Groups owned by user
+        await db.delete(user)
+        await db.commit()
+
+        logger.info(f"Account deleted for user {user_id} (username: {username})")
+        
+        return {
+            "message": "Account successfully deleted",
+            "deleted_user_id": user_id
+        }
+
+    except Exception as e:
+        logger.error(f"Error deleting account for user {user.id}: {str(e)}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting account: {str(e)}"
         )

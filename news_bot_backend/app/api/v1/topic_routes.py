@@ -17,7 +17,7 @@ logger=get_logger(__name__)
 @router.get("/", response_model=list[TopicReturn])
 async def get_all_topics(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_superuser)
+    current_user: User = Depends(get_current_user)
 ) -> list[TopicReturn]:
     res = await db.execute(select(Topic))
     topics = res.scalars().all()

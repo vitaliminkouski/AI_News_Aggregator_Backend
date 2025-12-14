@@ -1,5 +1,7 @@
+from typing import Optional
+
 from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
@@ -11,17 +13,40 @@ from app.services.security import decode_token
 
 logger = get_logger(__name__)
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login/")
+# Make OAuth2 optional (for Swagger OAuth2 flow)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login/", auto_error=False)
+# Make HTTPBearer primary (for manual token entry)
+http_bearer = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
+async def get_current_user(
+        http_credentials: Optional[HTTPAuthorizationCredentials] = Depends(http_bearer),
+        token: Optional[str] = Depends(oauth2_scheme),
+        db: AsyncSession = Depends(get_db)
+):
+    """Get current user from either Bearer token or OAuth2 token."""
+    # Try Bearer token first (for manual entry in Swagger)
+    actual_token = None
+
+    if http_credentials:
+        actual_token = http_credentials.credentials
+    elif token:
+        actual_token = token
+
+    if not actual_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid token",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    payload = decode_token(token)
+    payload = decode_token(actual_token)
 
     if payload is None:
         logger.error("Invalid token")
@@ -49,6 +74,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error during access database"
         )
+
 
 async def get_superuser(current_user: User = Depends(get_current_user)) -> User:
     if not current_user.is_super:
