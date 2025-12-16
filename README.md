@@ -1,40 +1,110 @@
 # News_Bot
-Follow this steps to run server on local machine:
-1. Clone repository
-2. Install Docker, Docker-compose
-3. Get file .env from developers and copy to project root directory(to directory news_bot_backend). Make sure it contains `ML_SERVICE_URL` pointing to the deployed ML microservice (default `http://ml-service:8100`).
-4. Build and run container with command "docker-compose up --build"
+## News Bot – Backend + ML Microservice
 
-## Working with the ingestion API
-1. Add a source:
-   ```bash
-   curl -X POST http://localhost:8000/api/v1/sources/ \
-        -H "Content-Type: application/json" \
-        -d '{"source_name": "Example", "source_url": "https://example.com/rss"}'
-   ```
-2. Trigger parsing + ML enrichment:
-   ```bash
-   curl -X POST http://localhost:8000/api/v1/articles/ingest \
-        -H "Content-Type: application/json" \
-        -d '{"source_ids": [1], "limit": 5}'
-   ```
-3. Read processed items:
-   ```bash
-   curl "http://localhost:8000/api/v1/articles?limit=20&source_id=1"
-   ```
+News Bot is a web service for collecting, processing, and serving news articles, built with FastAPI for the main API and a separate ML microservice for NLP-related tasks (classification, embeddings, etc.).
 
-Articles returned by the API already contain summary, sentiment, extracted entities and metadata that могут напрямую отображаться на фронтенде.
+This README explains how to **get the project** and **run the entire stack with Docker** (backend, ML service, PostgreSQL, Redis, Celery worker & beat).
 
-## Background ingestion
-- `docker-compose.yml` разворачивает Redis, Celery worker и Celery beat. Настрой `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, `INGEST_CRON` в `.env`.
-- Периодические задания выполняют `POST /api/v1/articles/ingest` автоматически и сохраняют результаты в Postgres.
-- Логи воркеров доступны через `docker compose logs worker` / `logs beat`.
+---
 
-## Тесты
-```bash
-cd news_bot_backend
-pip install -r requirements.txt
-python -m pytest
-```
+### System requirements
 
-`tests/` содержит интеграционные сценарии для CRUD источников и пайплайна инжеста, включая мокирование парсера и ML сервиса.
+- **Git**
+- **Docker** (Docker Engine)
+- **Docker Compose**
+
+You do **not** need a local Python environment to run the app with Docker.
+
+---
+
+## Follow these steps to run API
+
+### 1. Clone the project
+
+### 2. Configure environment variables
+
+The project uses a root `.env` file for Docker Compose.
+
+Create a file named `.env` in the project root (`News_Bot`) and ask developers for data for this file:
+
+
+### 3. Run the entire project with Docker
+From the project root (`News_Bot`):
+
+### 4. Stop any previously running stack (optional but recommended)
+docker compose down || docker-compose down
+
+### 5. Build and start all services in the background
+docker compose up --build -d
+
+or, if you have the old binary:
+
+docker-compose up --build -d
+
+This will:
+
+- Build the **backend** image from `news_bot_backend/Dockerfile`
+- Build the **ML microservice** image from `ml_service/Dockerfile`
+- Start:
+  - `postgres` (PostgreSQL)
+  - `redis`
+  - `ml-service` (ML microservice)
+  - `api` (FastAPI backend)
+  - `worker` (Celery worker)
+  - `beat` (Celery beat scheduler)
+
+---
+
+## Accessing the services
+
+- **Backend API (FastAPI)**:  
+  `http://localhost:8000`
+- **API docs (Swagger UI)** (if enabled):  
+  `http://localhost:8000/docs`
+- **ML microservice**:  
+  `http://localhost:8100`
+- **PostgreSQL** (from host):  
+  - Host: `localhost`
+  - Port: `5433`
+  - Database: `newsbot`
+  - User: `newsbot_admin`
+  - Password: value from `POSTGRES_PASSWORD` in `.env`
+- **Redis** (from host):  
+  - Host: `localhost`
+  - Port: `6379`
+
+---
+
+### Managing the stack
+
+- **Check running containers**:
+
+ 
+  docker ps
+  - **View logs** (all services):
+
+ 
+  docker compose logs -f
+  # or: docker-compose logs -f
+  - **View logs for a specific service** (e.g., API):
+
+ 
+  docker compose logs -f api
+  - **Stop all services**:
+
+ 
+  docker compose down
+  # or: docker-compose down
+  ---
+
+### Development notes
+
+- The root `docker-compose.yml` mounts the backend code:
+
+  - Host path: `./news_bot_backend`
+  - Container path: `/app`
+
+  That means changes you make to the backend code on your machine are reflected inside the running containers (helpful for development, especially since `uvicorn` runs with `--reload`).
+
+- There is also a separate `docker-compose.yml` inside `news_bot_backend/` intended for backend-only usage.  
+  For running the **full project (backend + ML)**, always use the **root** `docker-compose.yml` as described above.
