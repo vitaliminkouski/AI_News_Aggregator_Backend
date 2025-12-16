@@ -16,8 +16,8 @@ class ArticleRead(BaseModel):
     id: int
     title: Optional[str]
     summary: Optional[str]
-    content: str
-    url: Optional[str]
+    content: Optional[str] = None
+    url: Optional[str] = None
     image_url: Optional[str]
     published_at: Optional[datetime]
     fetched_at: datetime
