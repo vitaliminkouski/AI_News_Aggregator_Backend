@@ -40,6 +40,13 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "%(levelname)s - %(asctime)s - %(name)s - %(message)s"
+    
+    # Log file settings
+    LOG_DIR: str = "logs"
+    LOG_FILE: str = "app.log"
+    LOG_MAX_BYTES: int = 10 * 1024 * 1024  # 10 MB
+    LOG_BACKUP_COUNT: int = 5  # Keep 5 backup files
+    LOG_TO_CONSOLE: bool = False  # Set to True if you also want console output
 
     PROFILE_PHOTOS_DIR: str = "static/profile_photos"
 

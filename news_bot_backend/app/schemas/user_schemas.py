@@ -15,7 +15,7 @@ class UserCreate(UserBase):
 
 class UserReturn(UserBase):
     id: int
-    is_verified: bool
+    is_verified: bool | None = None
     is_super: bool | None = None
 
     model_config = {"from_attributes": True}
