@@ -1,5 +1,6 @@
 import uuid
 from pathlib import Path
+from typing import Optional
 
 import aiofiles
 from fastapi import APIRouter, HTTPException, UploadFile, Form
@@ -31,7 +32,7 @@ async def register_user(
         last_name: str = Form(None),
         scan_period: int = Form(3),
         password: str = Form(min_length=8),
-        profile_photo: UploadFile | None = File(None),
+        profile_photo: Optional[UploadFile] = File(None),
         db: AsyncSession = Depends(get_db)
 ):
     try:
