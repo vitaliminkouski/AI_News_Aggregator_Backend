@@ -1,110 +1,132 @@
 # News_Bot
-## News Bot – Backend + ML Microservice
+## Сервер News bot
 
-News Bot is a web service for collecting, processing, and serving news articles, built with FastAPI for the main API and a separate ML microservice for NLP-related tasks (classification, embeddings, etc.).
+News Bot — это веб-сервис для сбора, обработки и предоставления новостных статей, разработанный на базе FastAPI (основной API) и отдельного ML-микросервиса для задач NLP (классификация, эмбеддинги и т.д.).
 
-This README explains how to **get the project** and **run the entire stack with Docker** (backend, ML service, PostgreSQL, Redis, Celery worker & beat).
 
----
 
-### System requirements
+## Backend-разработчики:
+
+ - **Рейнвальд Олег Евгеньевич**
+ - **Минковский Виталий Викторович**
+
+
+## Системные требования
 
 - **Git**
 - **Docker** (Docker Engine)
 - **Docker Compose**
 
-You do **not** need a local Python environment to run the app with Docker.
-
----
-
-## Follow these steps to run API
-
-### 1. Clone the project
-
-### 2. Configure environment variables
-
-The project uses a root `.env` file for Docker Compose.
-
-Create a file named `.env` in the project root (`News_Bot`) and ask developers for data for this file:
+Вам **не** нужно настраивать локальное окружение Python для запуска приложения через Docker.
 
 
-### 3. Run the entire project with Docker
-From the project root (`News_Bot`):
+## Инструкция по запуску API
 
-### 4. Stop any previously running stack (optional but recommended)
+### 1. Клонируйте проект
+
+### 2. Настройте переменные окружения
+
+Проект использует корневой файл `.env` для Docker Compose.
+
+Создайте файл с именем `.env` в корне проекта (`News_Bot`) и запросите данные для заполнения этого файла у разработчиков.
+
+### 3. Запустите весь проект с помощью Docker
+
+Выполняйте команды из корня проекта (`News_Bot`):
+
+### 4. Остановите любой ранее запущенный стек (опционально, но рекомендуется)
+
 docker compose down || docker-compose down
+### 5. Соберите и запустите все сервисы в фоновом режиме
 
-### 5. Build and start all services in the background
 docker compose up --build -d
+Это действие:
 
-or, if you have the old binary:
-
-docker-compose up --build -d
-
-This will:
-
-- Build the **backend** image from `news_bot_backend/Dockerfile`
-- Build the **ML microservice** image from `ml_service/Dockerfile`
-- Start:
+- Соберет образ бэкенда из `news_bot_backend/Dockerfile`
+- Соберет образ ML-микросервиса из `ml_service/Dockerfile`
+- Запустит:
   - `postgres` (PostgreSQL)
   - `redis`
-  - `ml-service` (ML microservice)
-  - `api` (FastAPI backend)
+  - `ml-service` (ML-микросервис)
+  - `api` (бэкенд FastAPI)
   - `worker` (Celery worker)
-  - `beat` (Celery beat scheduler)
+  - `beat` (планировщик Celery beat)
 
----
 
-## Accessing the services
+
+## Доступ к сервисам
 
 - **Backend API (FastAPI)**:  
   `http://localhost:8000`
-- **API docs (Swagger UI)** (if enabled):  
+- **API docs (Swagger UI)**:  
   `http://localhost:8000/docs`
-- **ML microservice**:  
+- **ML-микросервис**:  
   `http://localhost:8100`
-- **PostgreSQL** (from host):  
+- **PostgreSQL** (с хоста):  
   - Host: `localhost`
   - Port: `5433`
   - Database: `newsbot`
   - User: `newsbot_admin`
-  - Password: value from `POSTGRES_PASSWORD` in `.env`
-- **Redis** (from host):  
+  - Password: значение из `POSTGRES_PASSWORD` в `.env`
+- **Redis** (с хоста):  
   - Host: `localhost`
   - Port: `6379`
 
----
 
-### Managing the stack
 
-- **Check running containers**:
+## Работа со Swagger UI
 
- 
-  docker ps
-  - **View logs** (all services):
+Swagger UI — интерактивная документация API, доступная по адресу `http://localhost:8000/docs` после запуска сервисов.
 
- 
-  docker compose logs -f
-  # or: docker-compose logs -f
-  - **View logs for a specific service** (e.g., API):
+### Открытие Swagger UI
 
- 
-  docker compose logs -f api
-  - **Stop all services**:
+1. Убедитесь, что все сервисы запущены (`docker compose ps`)
+2. Откройте в браузере: `http://localhost:8000/docs`
+3. Вы увидите список всех доступных endpoints, сгруппированных по тегам (Authentication, profile, articles и т.д.)
 
- 
-  docker compose down
-  # or: docker-compose down
-  ---
+### Аутентификация в Swagger
 
-### Development notes
+Для работы с защищёнными endpoints требуется аутентификация. Доступны два способа:
 
-- The root `docker-compose.yml` mounts the backend code:
+#### Способ 1: Авторизация через OAuth2 (рекомендуется)
 
-  - Host path: `./news_bot_backend`
-  - Container path: `/app`
+1. Нажмите кнопку **"Authorize"** в правом верхнем углу Swagger UI
+2. В открывшемся окне выберите **"OAuth2PasswordBearer"**
+3. Введите:
+   - **username**: ваш логин или email
+   - **password**: ваш пароль
+4. Нажмите **"Authorize"**, затем **"Close"**
+5. Swagger автоматически получит токен и будет использовать его для всех запросов
 
-  That means changes you make to the backend code on your machine are reflected inside the running containers (helpful for development, especially since `uvicorn` runs with `--reload`).
+#### Способ 2: Ручной ввод токена (bearerAuth)
 
-- There is also a separate `docker-compose.yml` inside `news_bot_backend/` intended for backend-only usage.  
-  For running the **full project (backend + ML)**, always use the **root** `docker-compose.yml` as described above.
+1. Сначала получите токен через endpoint `/api/v1/auth/login/`:
+   - Откройте `/api/v1/auth/login/` в Swagger
+   - Нажмите **"Try it out"**
+   - Введите `username` и `password` в формате `application/x-www-form-urlencoded`
+   - Нажмите **"Execute"**
+   - Скопируйте значение `access` из ответа
+2. Нажмите кнопку **"Authorize"** в правом верхнем углу
+3. Выберите **"bearerAuth"**
+4. Вставьте токен (без префикса "Bearer")
+5. Нажмите **"Authorize"**, затем **"Close"**
+
+### Использование защищённых endpoints
+
+После авторизации:
+- Защищённые endpoints отмечены значком 🔒
+- Токен автоматически добавляется в заголовки запросов
+- Вы можете выполнять любые операции (GET, POST, PUT, PATCH, DELETE)
+
+### Тестирование API через Swagger
+
+1. Выберите нужный endpoint
+2. Нажмите **"Try it out"**
+3. Заполните параметры запроса (если требуется)
+4. Нажмите **"Execute"**
+5. Просмотрите:
+   - **Response body** — тело ответа
+   - **Response headers** — заголовки ответа
+   - **Curl** — команда curl для повторения запроса
+   - **Request URL** — полный URL запроса
+
