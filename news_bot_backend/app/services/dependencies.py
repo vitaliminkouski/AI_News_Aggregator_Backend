@@ -67,6 +67,8 @@ async def get_current_user(
             logger.error("Invalid token")
             raise credentials_exception
         return user
+    except HTTPException:
+        raise
 
     except:
         logger.error("Error during access database")
