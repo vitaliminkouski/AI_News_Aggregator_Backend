@@ -1,4 +1,4 @@
-from jose import jwt, JWTError
+from jose import jwt, JWTError, ExpiredSignatureError
 from passlib.context import CryptContext
 from datetime import datetime, timezone, timedelta
 import uuid
@@ -22,9 +22,9 @@ def verify_password(hashed_password: str, plain_password: str):
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({
-        "expire": str(expire),
+        "exp": expire,  # Используем стандартное поле exp вместо expire
         "type": "access"
     })
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
@@ -68,9 +68,18 @@ def verify_jwt_token(token: str):
 
 def decode_token(token: str):
     try:
-        payload = jwt.decode(token=token, key=settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(
+            token=token, 
+            key=settings.SECRET_KEY, 
+            algorithms=[settings.ALGORITHM],
+            options={"verify_exp": True}  # Явно включаем проверку истечения
+        )
         return payload
+    except jwt.ExpiredSignatureError:
+        # Токен истёк
+        return None
     except JWTError:
+        # Другие ошибки JWT (неверная подпись, неверный формат и т.д.)
         return None
 
 
