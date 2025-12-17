@@ -33,3 +33,5 @@ ml_service/.venv/
 ml_service/hf_models/
 ml_service/models/
 ml_service/hf_cache/
+
+.env
