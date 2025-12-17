@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorization
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
+from jose import jwt, JWTError, ExpiredSignatureError
 
 from app.core.logging_config import get_logger
 from app.db.database import get_db
