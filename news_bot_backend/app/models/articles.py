@@ -24,5 +24,8 @@ class Articles(Base):
 
     source_id = Column(Integer, ForeignKey("Source.id", ondelete="CASCADE", onupdate="CASCADE"))
     source = relationship("Source", back_populates="articles")
+    
+    topic_id = Column(Integer, ForeignKey("Topic.id", ondelete="SET NULL", onupdate="CASCADE"), nullable=True)
+    topic = relationship("Topic", back_populates="articles")
 
 

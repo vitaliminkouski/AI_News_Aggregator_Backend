@@ -24,7 +24,7 @@ async def list_sources(db: AsyncSession = Depends(get_db),
 @router.post("/", response_model=SourceRead, status_code=status.HTTP_201_CREATED)
 async def create_source(payload: SourceCreate,
                         db: AsyncSession = Depends(get_db),
-                        current_user: User=Depends(get_current_user)) -> SourceRead:
+                        current_user: User=Depends(get_superuser)) -> SourceRead:
     exists = await db.execute(select(Source).where(Source.source_url == str(payload.source_url)))
     if exists.scalars().first():
         raise HTTPException(

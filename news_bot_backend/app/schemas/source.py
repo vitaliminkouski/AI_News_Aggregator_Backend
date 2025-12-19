@@ -18,7 +18,7 @@ class SourceCreate(SourceBase):
 class SourceUpdate(BaseModel):
     source_name: Optional[str] = Field(default=None, max_length=100)
     source_url: Optional[AnyHttpUrl] = None
-    language: Optional[str] = Field(default=None, max_length=5)
+    language: Optional[str] = Field(default=None, max_length=2)
     topic_id: Optional[int] = None
     is_active: Optional[bool] = None
 
