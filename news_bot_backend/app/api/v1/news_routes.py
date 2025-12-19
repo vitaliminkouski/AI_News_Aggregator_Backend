@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, contains_eager
 from starlette import status
 
 from app.core.logging_config import get_logger
@@ -20,31 +20,27 @@ logger = get_logger(__name__)
 
 
 
-@router.get("/filter/", response_model=ArticleListResponse)
+@router.get("/get-news/", response_model=ArticleListResponse)
 async def filter_articles(
         current_user: User = Depends(get_current_user),
         db: AsyncSession = Depends(get_db),
         # Источники: all | subscriptions | single
         source_scope: Literal["all", "subscriptions", "single"] = Query(
             default="all",
-            description="Источник новостей: all — все, subscriptions — только подписки пользователя, single — конкретный источник"
         ),
         source_id: Optional[int] = Query(
             default=None,
-            description="ID конкретного источника (обязателен, если source_scope=single)"
         ),
         # Тема (по ID темы)
         topic_id: Optional[int] = Query(
             default=None,
-            description="ID темы"
         ),
         # Период: today | 3days | week
         period: Optional[Literal["today", "3days", "week"]] = Query(
             default=None,
-            description="Период: today — за сегодня, 3days — за 3 дня, week — за неделю"
         ),
-        limit: int = Query(default=100, ge=1, le=1000, description="Максимальное количество результатов"),
-        offset: int = Query(default=0, ge=0, description="Смещение для пагинации"),
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
 ) -> ArticleListResponse:
 
     try:
@@ -54,7 +50,7 @@ async def filter_articles(
         statement = (
             select(Articles)
             .join(Source, Articles.source_id == Source.id)
-            .options(selectinload(Articles.source))
+            .options(contains_eager(Articles.source))
         )
 
         # Фильтр по источникам
@@ -79,7 +75,7 @@ async def filter_articles(
 
         # Фильтр по периоду
         if period is not None:
-            now = datetime.now(timezone.utc)
+            now = datetime.utcnow()
             if period == "today":
                 start = now.replace(hour=0, minute=0, second=0, microsecond=0)
             elif period == "3days":
@@ -170,44 +166,6 @@ async def search_articles_by_title(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error during searching articles"
-        )
-
-
-@router.get("/", response_model=ArticleListResponse)
-async def get_all_articles(
-        db: AsyncSession = Depends(get_db),
-        limit: int = Query(default=100, ge=1, le=1000, description="Maximum number of results"),
-        offset: int = Query(default=0, ge=0, description="Pagination offset")
-) -> ArticleListResponse:
-    try:
-        # Base query with source relationship loaded
-        statement = (
-            select(Articles)
-            .options(selectinload(Articles.source))
-            .order_by(Articles.published_at.desc())
-        )
-
-        # Get total count before pagination
-        count_statement = select(func.count()).select_from(Articles)
-        total_result = await db.execute(count_statement)
-        total = total_result.scalar() or 0
-
-        # Apply pagination
-        statement = statement.offset(offset).limit(limit)
-
-        # Execute query
-        result = await db.execute(statement)
-        articles = result.scalars().all()
-
-        return ArticleListResponse(
-            items=[ArticleRead.model_validate(article) for article in articles],
-            total=total
-        )
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving articles: {str(e)}"
         )
 
 

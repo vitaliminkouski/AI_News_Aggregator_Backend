@@ -19,12 +19,11 @@ class ArticleRead(BaseModel):
     summary: Optional[str]
     content: Optional[str] = None
     url: Optional[str] = None
-    image_url: Optional[str]
+    image_url: Optional[str] = None
     published_at: Optional[datetime]
-    fetched_at: datetime
-    source: Optional[SourceRead]
+    fetched_at: datetime = None
     topic_id: Optional[int] = None
-    topic: Optional[TopicReturn] = None
+    source_id: Optional[int] = None
     sentiment_label: Optional[str]
     sentiment_score: Optional[float]
     entities: List[EntityModel] = []
