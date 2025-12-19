@@ -4,6 +4,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 from app.schemas.source import SourceRead
+from app.schemas.topic import TopicReturn
 
 
 class EntityModel(BaseModel):
@@ -22,6 +23,8 @@ class ArticleRead(BaseModel):
     published_at: Optional[datetime]
     fetched_at: datetime
     source: Optional[SourceRead]
+    topic_id: Optional[int] = None
+    topic: Optional[TopicReturn] = None
     sentiment_label: Optional[str]
     sentiment_score: Optional[float]
     entities: List[EntityModel] = []

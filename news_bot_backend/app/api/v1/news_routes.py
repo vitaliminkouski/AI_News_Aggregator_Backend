@@ -1,4 +1,5 @@
-from typing import Optional
+from typing import Optional, Literal
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy import select, func
@@ -17,31 +18,122 @@ router = APIRouter(prefix="/news", tags=["News"])
 logger = get_logger(__name__)
 
 
-@router.get("/user-news/")
-async def get_articles(
+
+
+@router.get("/filter/", response_model=ArticleListResponse)
+async def filter_articles(
         current_user: User = Depends(get_current_user),
         db: AsyncSession = Depends(get_db),
-        limit: Optional[int] = Query(default=100, ge=1, le=1000)
-):
-    logger.info("Attempt to retrieve articles from database")
-    statement = (
-        select(Articles)
-        .join(Source, Articles.source_id == Source.id)
-        .join(UserSources, UserSources.source_id == Source.id)
-        .where(UserSources.user_id == current_user.id)
-        .order_by(Articles.published_at.desc())
-        .limit(limit)
-    )
+        # Источники: all | subscriptions | single
+        source_scope: Literal["all", "subscriptions", "single"] = Query(
+            default="all",
+            description="Источник новостей: all — все, subscriptions — только подписки пользователя, single — конкретный источник"
+        ),
+        source_id: Optional[int] = Query(
+            default=None,
+            description="ID конкретного источника (обязателен, если source_scope=single)"
+        ),
+        # Тема (по ID темы)
+        topic_id: Optional[int] = Query(
+            default=None,
+            description="ID темы"
+        ),
+        # Период: today | 3days | week
+        period: Optional[Literal["today", "3days", "week"]] = Query(
+            default=None,
+            description="Период: today — за сегодня, 3days — за 3 дня, week — за неделю"
+        ),
+        limit: int = Query(default=100, ge=1, le=1000, description="Максимальное количество результатов"),
+        offset: int = Query(default=0, ge=0, description="Смещение для пагинации"),
+) -> ArticleListResponse:
+
     try:
-        result = await db.execute(statement)
-        return result.scalars().all()
-    except:
-        logger.error("Error during retrieving articles from database")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error during retrieving articles from database"
+        filters = []
+
+        # Базовый запрос с загрузкой источника
+        statement = (
+            select(Articles)
+            .join(Source, Articles.source_id == Source.id)
+            .options(selectinload(Articles.source))
         )
 
+        # Фильтр по источникам
+        if source_scope == "subscriptions":
+            # Только источники, на которые подписан текущий пользователь
+            statement = (
+                statement
+                .join(UserSources, UserSources.source_id == Source.id)
+                .where(UserSources.user_id == current_user.id)
+            )
+        elif source_scope == "single":
+            if source_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="source_id is required when source_scope='single'"
+                )
+            filters.append(Articles.source_id == source_id)
+
+        # Фильтр по теме
+        if topic_id is not None:
+            filters.append(Articles.topic_id == topic_id)
+
+        # Фильтр по периоду
+        if period is not None:
+            now = datetime.now(timezone.utc)
+            if period == "today":
+                start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif period == "3days":
+                start = now - timedelta(days=3)
+            elif period == "week":
+                start = now - timedelta(days=7)
+            else:
+                start = None
+
+            if start is not None:
+                filters.append(Articles.published_at >= start)
+
+        # Применяем все накопленные фильтры
+        if filters:
+            statement = statement.where(*filters)
+
+        # Считаем total до пагинации
+        count_stmt = (
+            select(func.count())
+            .select_from(Articles)
+            .join(Source, Articles.source_id == Source.id)
+        )
+
+        if source_scope == "subscriptions":
+            count_stmt = (
+                count_stmt
+                .join(UserSources, UserSources.source_id == Source.id)
+                .where(UserSources.user_id == current_user.id)
+            )
+        if filters:
+            count_stmt = count_stmt.where(*filters)
+
+        total_result = await db.execute(count_stmt)
+        total = total_result.scalar() or 0
+
+        # Пагинация
+        statement = statement.order_by(Articles.published_at.desc()).offset(offset).limit(limit)
+
+        result = await db.execute(statement)
+        articles = result.scalars().all()
+
+        return ArticleListResponse(
+            items=[ArticleRead.model_validate(a) for a in articles],
+            total=total,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error filtering articles: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error during filtering articles"
+        )
 
 @router.get("/search/", response_model=list[ArticleRead])
 async def search_articles_by_title(
@@ -119,60 +211,4 @@ async def get_all_articles(
         )
 
 
-@router.get("/topic/{topic_id}/", response_model=ArticleListResponse)
-async def get_articles_by_topic(
-        topic_id: int,
-        db: AsyncSession = Depends(get_db),
-        limit: int = Query(default=100, ge=1, le=1000, description="Maximum number of results"),
-        offset: int = Query(default=0, ge=0, description="Pagination offset")
-) -> ArticleListResponse:
-    try:
-        # Verify topic exists
-        topic_result = await db.execute(select(Topic).where(Topic.id == topic_id))
-        topic = topic_result.scalar_one_or_none()
 
-        if not topic:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Topic with id {topic_id} not found"
-            )
-
-        # Query: Articles -> Source -> Topic
-        # Get articles from sources that belong to this topic
-        statement = (
-            select(Articles)
-            .join(Source, Articles.source_id == Source.id)
-            .where(Source.topic_id == topic_id)
-            .options(selectinload(Articles.source))
-            .order_by(Articles.published_at.desc())
-        )
-
-        # Get total count before pagination
-        count_statement = (
-            select(func.count())
-            .select_from(Articles)
-            .join(Source, Articles.source_id == Source.id)
-            .where(Source.topic_id == topic_id)
-        )
-        total_result = await db.execute(count_statement)
-        total = total_result.scalar() or 0
-
-        # Apply pagination
-        statement = statement.offset(offset).limit(limit)
-
-        # Execute query
-        result = await db.execute(statement)
-        articles = result.scalars().all()
-
-        return ArticleListResponse(
-            items=[ArticleRead.model_validate(article) for article in articles],
-            total=total
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving articles by topic: {str(e)}"
-        )
