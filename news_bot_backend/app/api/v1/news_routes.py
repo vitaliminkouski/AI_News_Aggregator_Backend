@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 
 
 @router.get("/get-news/", response_model=ArticleListResponse)
-async def filter_articles(
+async def get_news(
         current_user: User = Depends(get_current_user),
         db: AsyncSession = Depends(get_db),
         # Источники: all | subscriptions | single
@@ -61,6 +61,8 @@ async def filter_articles(
                 .join(UserSources, UserSources.source_id == Source.id)
                 .where(UserSources.user_id == current_user.id)
             )
+
+
         elif source_scope == "single":
             if source_id is None:
                 raise HTTPException(
