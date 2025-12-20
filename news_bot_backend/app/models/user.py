@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, VARCHAR, Boolean, DateTime, String, Text
 from sqlalchemy.orm import relationship
 
@@ -16,7 +16,7 @@ class User(Base):
     profile_photo = Column(String(255))
     is_verified = Column(Boolean, default=False)
     is_super = Column(Boolean, default=False)
-    joined_at = Column(DateTime, default=datetime.utcnow)
+    joined_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     scan_period = Column(Integer, default=3)
     hashed_password = Column(String(255), nullable=False)
 

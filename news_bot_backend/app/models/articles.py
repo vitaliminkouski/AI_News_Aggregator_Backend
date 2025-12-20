@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, Integer, DateTime, String, Text, ForeignKey, Float, JSON
 from sqlalchemy.orm import relationship
@@ -18,7 +18,11 @@ class Articles(Base):
     image_url = Column(String(255))
     url=Column(String(255), unique=True)
     published_at = Column(DateTime)
-    fetched_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    fetched_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        nullable=False
+    )
     sentiment_label = Column(String(32))
     sentiment_score = Column(Float)
     entities = Column(JSON, default=list)

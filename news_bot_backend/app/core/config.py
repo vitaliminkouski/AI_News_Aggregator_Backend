@@ -52,7 +52,7 @@ class Settings(BaseSettings):
 
     # ML services
     ML_SERVICE_URL: str = Field(
-        default="http://ml-service:8100/summarize",
+        default="http://ml-service:8100/v1/summarize",  # Fixed: added /v1
         description="Full URL of the summarization endpoint.",
     )
     ML_TIMEOUT: int = Field(
