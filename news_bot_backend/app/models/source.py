@@ -13,7 +13,7 @@ class Source(Base):
     source_name = Column(String(100))
     source_url = Column(String(255), nullable=False)
     language = Column(String(2))
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at = Column(DateTime, onupdate=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     last_fetched_at = Column(DateTime)

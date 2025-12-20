@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, Integer, Text, ForeignKey, DateTime, String, Boolean, UUID
 from sqlalchemy.orm import relationship
@@ -18,6 +18,6 @@ class RefreshToken(Base):
     user_id=Column(Integer, ForeignKey("User.id", ondelete="CASCADE", onupdate="CASCADE"))
     user=relationship("User", back_populates="refresh_tokens")
 
-    created_at=Column(DateTime, default=datetime.utcnow)
-    expires_at=Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    expires_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 

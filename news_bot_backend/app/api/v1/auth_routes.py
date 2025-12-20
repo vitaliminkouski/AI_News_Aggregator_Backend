@@ -26,7 +26,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(),
     ))
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user or not verify_password(user.hashed_password, form_data.password):
         logger.warning("Incorrect password or username")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -84,7 +84,7 @@ async def refresh_token_endpoint(
         logger.warning("Token revoked")
         raise HTTPException(status_code=401, detail="Token revoked")
 
-    if not verify_password(refresh_token, stored_token.hashed_token):
+    if not verify_password(stored_token.hashed_token, refresh_token):
         logger.warning("Invalid token signature")
         raise HTTPException(status_code=401, detail="Invalid token signature")
 
@@ -132,7 +132,7 @@ async def logout(
         return {"detail": "Successfully logged out"}
 
 
-    if not verify_password(refresh_token, stored_token.hashed_token):  #
+    if not verify_password(stored_token.hashed_token, refresh_token):  #
         raise credentials_exception
 
     try:

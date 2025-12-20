@@ -17,7 +17,7 @@ def hash_password(plain_password: str):
 
 
 def verify_password(hashed_password: str, plain_password: str):
-    return pwd_ctx.verify(hashed_password, plain_password)
+    return pwd_ctx.verify(plain_password, hashed_password)
 
 
 def create_access_token(data: dict):

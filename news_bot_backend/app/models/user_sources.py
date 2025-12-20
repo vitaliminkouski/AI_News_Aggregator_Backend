@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, VARCHAR, Boolean, DateTime, String, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
@@ -13,7 +13,7 @@ class UserSources(Base):
     )
 
     id=Column(Integer, primary_key=True, autoincrement=True, index=True, unique=True)
-    subscribed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    subscribed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     user_id=Column(Integer, ForeignKey("User.id", ondelete="CASCADE", onupdate="CASCADE"))
     user=relationship("User", back_populates="user_sources")
