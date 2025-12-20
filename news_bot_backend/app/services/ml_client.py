@@ -1,96 +1,17 @@
-from __future__ import annotations
-
-from typing import Any, Dict, Optional
-
 import httpx
-from pydantic import BaseModel
-
+from app.core.logging_config import get_logger
 from app.core.config import get_settings
 
+logger = get_logger(__name__)
+settings=get_settings()
 
-class MLServiceError(Exception):
-    """Raised when the ML microservice returns an error or is unreachable."""
-
-
-class SentimentResult(BaseModel):
-    label: str
-    score: float
-
-
-class EntityResult(BaseModel):
-    text: str
-    type: str
-    score: float
-
-
-class SummaryResult(BaseModel):
-    summary: str
-
-
-class AnalysisResult(BaseModel):
-    summary: str
-    sentiment: SentimentResult
-    entities: list[EntityResult]
-
-
-class MLClient:
-    """Thin HTTPX wrapper around the ML microservice endpoints."""
-
-    def __init__(
-        self,
-        base_url: str,
-        *,
-        timeout: Optional[httpx.Timeout] = None,
-        client: Optional[httpx.AsyncClient] = None,
-    ) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.timeout = timeout or httpx.Timeout(30.0, connect=5.0)
-        self._client = client
-
-    async def summarize(
-        self,
-        text: str,
-        *,
-        min_tokens: Optional[int] = None,
-        max_tokens: Optional[int] = None,
-    ) -> SummaryResult:
-        payload: Dict[str, Any] = {"text": text}
-        if min_tokens is not None:
-            payload["min_tokens"] = min_tokens
-        if max_tokens is not None:
-            payload["max_tokens"] = max_tokens
-        data = await self._post("/v1/summarize", payload)
-        return SummaryResult.model_validate(data)
-
-    async def analyze(
-        self,
-        text: str,
-        *,
-        min_tokens: Optional[int] = None,
-        max_tokens: Optional[int] = None,
-    ) -> AnalysisResult:
-        payload: Dict[str, Any] = {"text": text}
-        if min_tokens is not None:
-            payload["min_tokens"] = min_tokens
-        if max_tokens is not None:
-            payload["max_tokens"] = max_tokens
-        data = await self._post("/v1/analyze", payload)
-        return AnalysisResult.model_validate(data)
-
-    async def _post(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        url = f"{self.base_url}{path}"
-        client = self._client or httpx.AsyncClient(timeout=self.timeout)
-        try:
-            response = await client.post(url, json=payload)
-        except httpx.HTTPError as exc:  # pragma: no cover - network failure guard
-            raise MLServiceError(f"Failed to reach ML service at {url}") from exc
-        finally:
-            if self._client is None:
-                await client.aclose()
-
-        if response.status_code >= 400:
-            raise MLServiceError(f"ML service returned {response.status_code}: {response.text}")
-        return response.json()
-
-
-ml_client = MLClient(get_settings().ML_SERVICE_URL)
+async def get_summary_from_ml(text: str) -> str:
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(settings.ML_SERVICE_URL, json={"text": text})
+            response.raise_for_status()
+            data = response.json()
+            return data.get("summary", text[:200] + "...")  # Fallback to snippet
+    except Exception as e:
+        logger.error(f"ML Service error: {e}")
+        return text[:200] + "..."  # Fallback

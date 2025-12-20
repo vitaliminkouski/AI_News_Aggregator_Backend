@@ -13,11 +13,11 @@ from app.models import User, Articles, Source, UserSources, Topic
 from app.services.dependencies import get_current_user
 from app.schemas.article import ArticleRead, ArticleListResponse
 
+from app.tasks.news_tasks import sync_user_sources_task
+
 router = APIRouter(prefix="/news", tags=["News"])
 
 logger = get_logger(__name__)
-
-
 
 
 @router.get("/get-news/", response_model=ArticleListResponse)
@@ -42,7 +42,6 @@ async def get_news(
         limit: int = Query(default=100, ge=1, le=1000),
         offset: int = Query(default=0, ge=0),
 ) -> ArticleListResponse:
-
     try:
         filters = []
 
@@ -133,6 +132,7 @@ async def get_news(
             detail="Error during filtering articles"
         )
 
+
 @router.get("/search/", response_model=list[ArticleRead])
 async def search_articles_by_title(
         title: str = Query(..., description="Title or part of title to search for"),
@@ -140,7 +140,6 @@ async def search_articles_by_title(
         db: AsyncSession = Depends(get_db),
         limit: Optional[int] = Query(default=100, ge=1, le=1000)
 ):
-
     logger.info(f"Searching all articles by title: '{title}'")
 
     try:
@@ -171,4 +170,22 @@ async def search_articles_by_title(
         )
 
 
+@router.post("/sync-news/", status_code=status.HTTP_202_ACCEPTED)
+async def sync_my_news(
+        current_user: User = Depends(get_current_user),
+):
 
+    try:
+
+        sync_user_sources_task.delay(current_user.id)
+
+        return {
+            "status": "ok",
+            "message": "News synchronization started in background",
+        }
+    except Exception as e:
+        logger.error(f"Failed to start sync for user {current_user.id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not start synchronization task"
+        )

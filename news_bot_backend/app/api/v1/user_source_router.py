@@ -41,6 +41,35 @@ async def add_user_source(
     await db.refresh(user_source)
     return UserSourceRead.model_validate(user_source)
 
+@router.delete("/")
+async def delete_user_source(
+        payload: UserSourceCreate,
+        user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db)
+):
+    try:
+        res=await db.execute(select(UserSources).where(
+            UserSources.user_id==user.id,
+            UserSources.source_id==payload.source_id
+        ))
+    except:
+        raise HTTPException(status_code=500, detail="Error during access to database")
+    user_source=res.scalar_one_or_none()
+    if not user_source:
+        raise HTTPException(
+            status_code=404,
+            detail=f"User not subscribed on source {payload.source_id}")
+
+    try:
+        await db.delete(user_source)
+        await db.commit()
+        return {"message": "User source has been deleted successfully"}
+    except:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Can't delete user source {payload.source_id}"
+        )
+
 
 @router.get("/", response_model=list[UserSourceRead])
 async def list_user_sources(

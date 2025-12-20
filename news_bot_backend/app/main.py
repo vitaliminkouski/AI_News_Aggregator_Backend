@@ -6,7 +6,6 @@ from starlette.staticfiles import StaticFiles
 from app.api.v1.register_route import router as register_router
 from app.api.v1.auth_routes import router as auth_router
 from app.api.v1.news_routes import router as news_router
-from app.api.v1.articles import router as articles_router
 from app.api.v1.source_router import router as source_router
 from app.api.v1.profile_routes import router as profile_router
 from app.api.v1.topic_routes import router as topic_router
@@ -87,7 +86,6 @@ app.openapi = custom_openapi
 api_v1.include_router(register_router)
 api_v1.include_router(auth_router)
 api_v1.include_router(news_router)
-api_v1.include_router(articles_router)
 api_v1.include_router(source_router)
 api_v1.include_router(profile_router)
 api_v1.include_router(topic_router)
