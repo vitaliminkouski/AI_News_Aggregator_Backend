@@ -59,6 +59,7 @@ async def ingest_sources(
                 published_at=_coerce_datetime(raw.get("published_at")),
                 fetched_at=datetime.utcnow(),
                 source_id=source.id,
+                topic_id=source.topic_id,  # Добавляем topic_id из source
                 content_hash=content_hash,
                 sentiment_label=analysis.sentiment.label,
                 sentiment_score=analysis.sentiment.score,

@@ -1,5 +1,6 @@
 import uvicorn
 from fastapi import FastAPI, APIRouter
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from starlette.staticfiles import StaticFiles
 
@@ -23,6 +24,19 @@ logger = get_logger(__name__)
 logger.info("News Bot API starting up...")
 
 app = FastAPI()
+
+# Добавляем CORS middleware ПЕРЕД регистрацией роутеров
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",  # Vite dev server (основной порт)
+        "http://localhost:3000",  # React dev server (если используется)
+        "http://localhost:5174",  # Альтернативный порт Vite
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],  # Разрешаем все HTTP методы
+    allow_headers=["*"],  # Разрешаем все заголовки
+)
 
 api_v1=APIRouter(prefix="/api/v1")
 
