@@ -1,205 +1,111 @@
 version: "3.9"
 
 services:
-  # PostgreSQL Database
+  # 1. База данных PostgreSQL
   postgres:
     image: postgres:16-alpine
     container_name: newsbot_postgres
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    env_file: .env
+    # Переменные POSTGRES_DB, USER, PASSWORD подтянутся из .env автоматически
     ports:
-      - "5433:5432"
+      - "5433:5432" # 5433 для внешнего подключения
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      # Используем $$, чтобы Docker не воспринимал это как переменную Compose
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
       interval: 5s
       timeout: 5s
       retries: 10
     networks:
       - newsbot_network
 
-  # Redis for Celery
+  # 2. Redis (Брокер для Celery)
   redis:
-    image: redis:7
+    image: redis:7-alpine
     container_name: newsbot_redis
-    ports:
-      - "6379:6379"
     networks:
       - newsbot_network
 
-  # ML Microservice
-  ml-service:
-    build:
-      context: ./ml_service
-      dockerfile: Dockerfile
-    container_name: newsbot_ml_service
-    ports:
-      - "8100:8100"
-    networks:
-      - newsbot_network
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8100/health || exit 1" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+  # 3. ML Микросервис (Суммаризация)
+#  ml-service:
+#    build:
+#      context: ./ml_service
+#      dockerfile: Dockerfile
+#    container_name: newsbot_ml_service
+#    env_file: .env
+#    networks:
+#      - newsbot_network
+#    healthcheck:
+#      test: [ "CMD-SHELL", "curl -f http://localhost:8100/health || exit 1" ]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#      start_period: 20s
 
-  # Main API Service
+  # 4. Основной API (FastAPI)
   api:
     build:
       context: ./news_bot_backend
       dockerfile: Dockerfile
     container_name: newsbot_api
-    environment:
-      # App Settings
-      APP_NAME: ${APP_NAME}
-      VERSION: ${VERSION}
-      ENVIRONMENT: ${ENVIRONMENT}
-      DEBUG: ${DEBUG}
-      API_PREFIX: ${API_PREFIX}
-
-      # Database (use service name in Docker)
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
-      # Security
-      SECRET_KEY: ${SECRET_KEY}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
-      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS}
-      EMAIL_CONFIRM_EXPIRE_HOURS: ${EMAIL_CONFIRM_EXPIRE_HOURS}
-      ALGORITHM: ${ALGORITHM}
-
-      # Email Configuration
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
-      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
-      BACKEND_URL: ${BACKEND_URL}
-
-      # ML Service
-      ML_SERVICE_URL: ${ML_SERVICE_URL}
-
-      # Celery
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
-      INGEST_CRON: ${INGEST_CRON}
-
-      PYTHONPATH: /app
+    env_file: .env
     ports:
       - "8000:8000"
     volumes:
       - ./news_bot_backend:/app
-      - /app/__pycache__
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
-      ml-service:
-        condition: service_healthy
+#      ml-service:
+#        condition: service_healthy
     networks:
       - newsbot_network
     command: >
       sh -c "
-        echo 'Waiting for services...' &&
-        sleep 10 &&
-        echo 'Running migrations...' &&
+        echo 'Applying database migrations...' &&
         alembic upgrade head &&
-        echo 'Starting News_Bot API server...' &&
+        echo 'Starting FastAPI server...' &&
         uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
       "
 
-  # Celery Worker
+  # 5. Celery Worker (Парсинг и логика)
   worker:
     build:
       context: ./news_bot_backend
       dockerfile: Dockerfile
     container_name: newsbot_worker
-    environment:
-      APP_NAME: ${APP_NAME}
-      VERSION: ${VERSION}
-      ENVIRONMENT: ${ENVIRONMENT}
-      DEBUG: ${DEBUG}
-      API_PREFIX: ${API_PREFIX}
-
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
-      SECRET_KEY: ${SECRET_KEY}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
-      ALGORITHM: ${ALGORITHM}
-
-      ML_SERVICE_URL: ${ML_SERVICE_URL}
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
-      INGEST_CRON: ${INGEST_CRON}
-
-      PYTHONPATH: /app
+    env_file: .env
     volumes:
       - ./news_bot_backend:/app
-      - /app/__pycache__
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
-      ml-service:
-        condition: service_healthy
+#      ml-service:
+#        condition: service_healthy
     networks:
       - newsbot_network
     command: celery -A app.celery_app:celery_app worker --loglevel=info
 
-  # Celery Beat (Scheduler)
+  # 6. Celery Beat (Планировщик - каждые 30 минут)
   beat:
     build:
       context: ./news_bot_backend
       dockerfile: Dockerfile
     container_name: newsbot_beat
-    environment:
-      APP_NAME: ${APP_NAME}
-      VERSION: ${VERSION}
-      ENVIRONMENT: ${ENVIRONMENT}
-      DEBUG: ${DEBUG}
-      API_PREFIX: ${API_PREFIX}
-
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
-      SECRET_KEY: ${SECRET_KEY}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
-      ALGORITHM: ${ALGORITHM}
-
-      ML_SERVICE_URL: ${ML_SERVICE_URL}
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
-      INGEST_CRON: ${INGEST_CRON}
-
-      PYTHONPATH: /app
+    env_file: .env
     volumes:
       - ./news_bot_backend:/app
-      - /app/__pycache__
     depends_on:
       redis:
         condition: service_started
-      ml-service:
-        condition: service_healthy
     networks:
       - newsbot_network
-    command: celery -A app.celery_app:celery_app beat --loglevel=info
+    command: celery -A app.celery_app:celery_app beat --loglevel=info --pidfile=
 
 volumes:
   postgres_data:

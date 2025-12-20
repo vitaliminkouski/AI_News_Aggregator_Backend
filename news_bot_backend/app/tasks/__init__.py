@@ -1,2 +1,1 @@
-# Empty package initializer for Celery task discovery.
-
+from app.tasks import news_tasks

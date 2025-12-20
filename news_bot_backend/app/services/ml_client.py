@@ -1,96 +1,56 @@
-from __future__ import annotations
-
-from typing import Any, Dict, Optional
-
+# app/services/ml_client.py
 import httpx
-from pydantic import BaseModel
-
+from app.core.logging_config import get_logger
 from app.core.config import get_settings
 
-
-class MLServiceError(Exception):
-    """Raised when the ML microservice returns an error or is unreachable."""
-
-
-class SentimentResult(BaseModel):
-    label: str
-    score: float
+logger = get_logger(__name__)
+settings = get_settings()
 
 
-class EntityResult(BaseModel):
-    text: str
-    type: str
-    score: float
+def _get_fallback_summary(text: str) -> str:
+    """Возвращает первые 200 символов текста как fallback summary."""
+    if len(text) <= 200:
+        return text
+    return text[:200] + "..."
 
 
-class SummaryResult(BaseModel):
-    summary: str
+async def get_summary_from_ml(text: str) -> str:
+    """
+    Получает summary из ML сервиса.
+    Если сервис недоступен, возвращает первые 200 символов текста.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=settings.ML_TIMEOUT) as client:
+            response = await client.post(
+                settings.ML_SERVICE_URL,
+                json={"text": text},
+                timeout=settings.ML_TIMEOUT
+            )
+            response.raise_for_status()
+            data = response.json()
+            summary = data.get("summary", "")
 
+            # Если summary пустой, используем fallback
+            if not summary or not summary.strip():
+                logger.warning("ML Service returned empty summary, using fallback")
+                return _get_fallback_summary(text)
 
-class AnalysisResult(BaseModel):
-    summary: str
-    sentiment: SentimentResult
-    entities: list[EntityResult]
+            return summary
 
+    except httpx.TimeoutException as e:
+        logger.warning(f"ML Service timeout after {settings.ML_TIMEOUT}s, using fallback: {e}")
+        return _get_fallback_summary(text)
 
-class MLClient:
-    """Thin HTTPX wrapper around the ML microservice endpoints."""
+    except httpx.ConnectError as e:
+        logger.warning(f"ML Service connection error (service may be down), using fallback: {e}")
+        return _get_fallback_summary(text)
 
-    def __init__(
-        self,
-        base_url: str,
-        *,
-        timeout: Optional[httpx.Timeout] = None,
-        client: Optional[httpx.AsyncClient] = None,
-    ) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.timeout = timeout or httpx.Timeout(30.0, connect=5.0)
-        self._client = client
+    except httpx.HTTPStatusError as e:
+        logger.error(
+            f"ML Service HTTP error {e.response.status_code}: {e.response.text}, using fallback"
+        )
+        return _get_fallback_summary(text)
 
-    async def summarize(
-        self,
-        text: str,
-        *,
-        min_tokens: Optional[int] = None,
-        max_tokens: Optional[int] = None,
-    ) -> SummaryResult:
-        payload: Dict[str, Any] = {"text": text}
-        if min_tokens is not None:
-            payload["min_tokens"] = min_tokens
-        if max_tokens is not None:
-            payload["max_tokens"] = max_tokens
-        data = await self._post("/v1/summarize", payload)
-        return SummaryResult.model_validate(data)
-
-    async def analyze(
-        self,
-        text: str,
-        *,
-        min_tokens: Optional[int] = None,
-        max_tokens: Optional[int] = None,
-    ) -> AnalysisResult:
-        payload: Dict[str, Any] = {"text": text}
-        if min_tokens is not None:
-            payload["min_tokens"] = min_tokens
-        if max_tokens is not None:
-            payload["max_tokens"] = max_tokens
-        data = await self._post("/v1/analyze", payload)
-        return AnalysisResult.model_validate(data)
-
-    async def _post(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        url = f"{self.base_url}{path}"
-        client = self._client or httpx.AsyncClient(timeout=self.timeout)
-        try:
-            response = await client.post(url, json=payload)
-        except httpx.HTTPError as exc:  # pragma: no cover - network failure guard
-            raise MLServiceError(f"Failed to reach ML service at {url}") from exc
-        finally:
-            if self._client is None:
-                await client.aclose()
-
-        if response.status_code >= 400:
-            raise MLServiceError(f"ML service returned {response.status_code}: {response.text}")
-        return response.json()
-
-
-ml_client = MLClient(get_settings().ML_SERVICE_URL)
+    except Exception as e:
+        logger.error(f"ML Service unexpected error: {e}, using fallback", exc_info=True)
+        return _get_fallback_summary(text)

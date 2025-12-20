@@ -36,7 +36,5 @@ class ArticleListResponse(BaseModel):
     total: int
 
 
-class IngestRequest(BaseModel):
-    source_ids: Optional[List[int]] = Field(default=None, description="Subset of source IDs to ingest")
-    limit: int = Field(default=10, ge=1, le=50)
+
 

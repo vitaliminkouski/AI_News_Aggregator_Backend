@@ -52,19 +52,37 @@ class Settings(BaseSettings):
 
     # ML services
     ML_SERVICE_URL: str = Field(
-        default="http://ml-service:8100",
-        description="Base URL of the NewsAgent ML microservice.",
+        default="http://ml-service:8100/v1/summarize",  # Fixed: added /v1
+        description="Full URL of the summarization endpoint.",
+    )
+    ML_TIMEOUT: int = Field(
+        default=60,
+        description="Timeout in seconds for ML service response."
     )
 
+    # --- CELERY & PARSER ---
     CELERY_BROKER_URL: str = Field(default="redis://redis:6379/0")
     CELERY_RESULT_BACKEND: str = Field(default="redis://redis:6379/1")
+
     INGEST_CRON: str = Field(
-        default="*/15 * * * *",
+        default="*/30 * * * *",
         description="Crontab expression for automatic ingestion schedule.",
     )
 
+    MAX_ARTICLES_PER_SOURCE: int = Field(
+        default=10,
+        description="Limit articles per source per sync to avoid overloading."
+    )
+
+    PARSER_THREADS: int = Field(
+        default=10,
+        description="Number of concurrent threads for the news parser."
+    )
+
+
+
     class Config:
-        env_file = ".env.local"
+        env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
 

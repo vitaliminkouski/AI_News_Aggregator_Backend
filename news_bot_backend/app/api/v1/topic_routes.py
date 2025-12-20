@@ -55,3 +55,25 @@ async def create_topic(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error during creating topic in database"
         )
+
+@router.delete("/")
+async def delete_topic(
+        topic_id: int,
+        superuser: User=Depends(get_superuser),
+        db: AsyncSession=Depends(get_db)
+):
+    topic=await db.get(Topic, topic_id)
+    if not topic:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Topic with id {topic_id} not found"
+        )
+    try:
+        await db.delete(topic)
+        await db.commit()
+        return {"message": f"Topic with id {topic_id} has been deleted successfully"}
+    except:
+        raise HTTPException(
+            status_code=500,
+            detail="Error during deleting topic"
+        )

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, Integer, DateTime, String, Text, ForeignKey, Float, JSON
 from sqlalchemy.orm import relationship
@@ -13,11 +13,16 @@ class Articles(Base):
     __tablename__ = "Articles"
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True, unique=True)
-    title = Column(String(255))
+    title = Column(String(255), index=True)
     summary = Column(Text)
     image_url = Column(String(255))
+    url=Column(String(255), unique=True)
     published_at = Column(DateTime)
-    fetched_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    fetched_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        nullable=False
+    )
     sentiment_label = Column(String(32))
     sentiment_score = Column(Float)
     entities = Column(JSON, default=list)

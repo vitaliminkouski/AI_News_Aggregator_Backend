@@ -13,7 +13,7 @@ class UserSources(Base):
     )
 
     id=Column(Integer, primary_key=True, autoincrement=True, index=True, unique=True)
-    subscribed_at=Column(DateTime, default=datetime.utcnow)
+    subscribed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user_id=Column(Integer, ForeignKey("User.id", ondelete="CASCADE", onupdate="CASCADE"))
     user=relationship("User", back_populates="user_sources")
