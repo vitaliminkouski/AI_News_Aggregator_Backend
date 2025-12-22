@@ -8,17 +8,13 @@ settings = get_settings()
 
 
 def _get_fallback_summary(text: str) -> str:
-    """Возвращает первые 200 символов текста как fallback summary."""
-    if len(text) <= 200:
+    if len(text) <= 400:
         return text
-    return text[:200] + "..."
+    return text[:400] + "..."
 
 
 async def get_summary_from_ml(text: str) -> str:
-    """
-    Получает summary из ML сервиса.
-    Если сервис недоступен, возвращает первые 200 символов текста.
-    """
+
     try:
         async with httpx.AsyncClient(timeout=settings.ML_TIMEOUT) as client:
             response = await client.post(
