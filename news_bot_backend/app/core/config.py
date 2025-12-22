@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = Field(default="")
     SMTP_FROM_EMAIL: str = Field(default="")
     BACKEND_URL: str
+    FRONTEND_URL: str = "http://localhost:5173"
 
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "%(levelname)s - %(asctime)s - %(name)s - %(message)s"

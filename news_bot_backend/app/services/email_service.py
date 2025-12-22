@@ -48,7 +48,7 @@ async def send_email(to_email: str, subject: str, html_content: str, text_conten
 
 async def send_verification_email(email: str, username: str, verification_token: str) -> bool:
     """Send email verification link to user."""
-    verification_url = f"{settings.BACKEND_URL}/verify-email?token={verification_token}"
+    verification_url = f"{settings.FRONTEND_URL}/verify-email?token={verification_token}"
 
     subject = f"Verify your {settings.APP_NAME} account"
 
@@ -102,7 +102,7 @@ async def send_verification_email(email: str, username: str, verification_token:
 
 async def send_password_reset_email(email: str, username: str, reset_token: str) -> bool:
     """Send password reset link to user."""
-    reset_url = f"{settings.BACKEND_URL}/reset-password?token={reset_token}"
+    reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
 
     subject = f"Reset Your {settings.APP_NAME} Password"
 
