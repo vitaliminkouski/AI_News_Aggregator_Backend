@@ -28,20 +28,22 @@ services:
       - newsbot_network
 
   # 3. ML Микросервис (Суммаризация)
-#  ml-service:
-#    build:
-#      context: ./ml_service
-#      dockerfile: Dockerfile
-#    container_name: newsbot_ml_service
-#    env_file: .env
-#    networks:
-#      - newsbot_network
-#    healthcheck:
-#      test: [ "CMD-SHELL", "curl -f http://localhost:8100/health || exit 1" ]
-#      interval: 10s
-#      timeout: 5s
-#      retries: 5
-#      start_period: 20s
+  ml-service:
+    build:
+      context: ./ml_service
+      dockerfile: Dockerfile
+    container_name: newsbot_ml_service
+    env_file: ./ml_service/.env
+    ports:
+      - "8100:8100"
+    networks:
+      - newsbot_network
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8100/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   # 4. Основной API (FastAPI)
   api:
@@ -59,8 +61,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-#      ml-service:
-#        condition: service_healthy
+      ml-service:
+        condition: service_healthy
     networks:
       - newsbot_network
     command: >
@@ -85,8 +87,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-#      ml-service:
-#        condition: service_healthy
+      ml-service:
+        condition: service_healthy
     networks:
       - newsbot_network
     command: celery -A app.celery_app:celery_app worker --loglevel=info
@@ -106,6 +108,21 @@ services:
     networks:
       - newsbot_network
     command: celery -A app.celery_app:celery_app beat --loglevel=info --pidfile=
+
+  # 7. Frontend (Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: newsbot_frontend
+    env_file: ./frontend/.env
+    ports:
+      - "5173:5173"
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - newsbot_network
 
 volumes:
   postgres_data:

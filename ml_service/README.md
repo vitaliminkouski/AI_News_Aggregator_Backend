@@ -24,6 +24,12 @@ SUMMARIZATION_MODEL_NAME=sshleifer/distilbart-cnn-12-6
 SENTIMENT_MODEL_NAME=cointegrated/rubert-tiny
 NER_MODEL_NAME=dslim/bert-base-NER
 TORCH_DEVICE=cpu
+# Для облачной LLaMA-саммаризации (OpenAI-совместимый endpoint, например Ollama Cloud):
+# LLAMA_API_BASE=https://api.ollama.com
+# LLAMA_API_KEY=sk-...
+# LLAMA_MODEL=meta-llama/Llama-3.1-8B-Instruct
+# LLAMA_MAX_TOKENS=256
+# LLAMA_TEMPERATURE=0.2
 ```
 
 ## Docker
