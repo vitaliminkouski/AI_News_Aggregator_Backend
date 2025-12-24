@@ -67,6 +67,8 @@ class TextAnalyticsService:
             )
         )
         summary = result[0]["summary_text"].strip()
+        if not summary:
+            return self._fallback_summary(text)
         self.logger.debug("Generated summary length=%s", len(summary))
         return summary
 
