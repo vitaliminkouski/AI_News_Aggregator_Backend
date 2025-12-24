@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any, Dict, List, Optional
 
+import httpx
 from transformers import pipeline
 
 from app.core.config import Settings
@@ -39,10 +40,20 @@ class TextAnalyticsService:
 
     async def summarize(self, text: str, *, min_tokens: Optional[int] = None, max_tokens: Optional[int] = None) -> str:
         """Generate abstractive summary for the provided text."""
+        # Prefer hosted LLaMA/OpenAI-compatible endpoint if configured.
+        if self.settings.remote_llama_enabled():
+            try:
+                summary = await self._remote_llama_summarize(text)
+                if summary:
+                    return summary
+            except Exception as exc:  # pragma: no cover - defensive logging
+                self.logger.warning("Remote LLaMA summarization failed, using lightweight fallback: %s", exc)
+                return self._fallback_summary(text)
+
         summarizer = await self._get_summarizer()
         max_tokens = max_tokens or self.settings.MAX_SUMMARY_TOKENS
         min_tokens = min_tokens or self.settings.MIN_SUMMARY_TOKENS
-        self.logger.debug("Running summarization (min=%s, max=%s)", min_tokens, max_tokens)
+        self.logger.debug("Running local summarization (min=%s, max=%s)", min_tokens, max_tokens)
 
         result = await asyncio.to_thread(
             partial(
@@ -56,6 +67,8 @@ class TextAnalyticsService:
             )
         )
         summary = result[0]["summary_text"].strip()
+        if not summary:
+            return self._fallback_summary(text)
         self.logger.debug("Generated summary length=%s", len(summary))
         return summary
 
@@ -63,10 +76,15 @@ class TextAnalyticsService:
         """Predict sentiment label and score."""
         classifier = await self._get_sentiment()
         self.logger.debug("Running sentiment analysis")
-        outputs = await asyncio.to_thread(partial(classifier, text, truncation=True, top_k=None))
-        # Most models return list of dicts sorted by score desc; take top-1.
-        top = max(outputs[0], key=lambda item: item["score"])
-        return SentimentLabel(label=top["label"], score=float(top["score"]))
+        outputs = await asyncio.to_thread(partial(classifier, text, truncation=True, top_k=1))
+        # Normalise possible shapes: [{"label": "...", "score": ...}] or [[{...}]]
+        if isinstance(outputs, list) and outputs:
+            first = outputs[0]
+            if isinstance(first, list) and first:
+                first = first[0]
+            if isinstance(first, dict) and "label" in first and "score" in first:
+                return SentimentLabel(label=first["label"], score=float(first["score"]))
+        raise RuntimeError(f"Unexpected sentiment output format: {outputs}")
 
     async def ner(self, text: str) -> List[Entity]:
         """Extract named entities."""
@@ -90,6 +108,47 @@ class TextAnalyticsService:
             "sentiment": sentiment,
             "entities": entities,
         }
+
+    async def _remote_llama_summarize(self, text: str) -> str:
+        """Call Ollama Cloud /api/generate (non-stream) for summarization."""
+        url = f"{self.settings.LLAMA_API_BASE.rstrip('/')}/generate"
+        headers = {
+            "Authorization": f"Bearer {self.settings.LLAMA_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        prompt = (
+            "Сделай краткое фактологичное саммари новости на русском: 2–4 короткие фразы. "
+            "Не выдумывай факты, обязательно сохрани числа, даты, проценты. "
+            "Без Markdown и звёздочек, без заголовков и слов типа 'Краткое содержание'. "
+            "Просто чистый текст с итогом новости. "
+            f"Текст:\n{text}"
+        )
+        payload = {
+            "model": self.settings.LLAMA_MODEL,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": self.settings.LLAMA_TEMPERATURE,
+                "num_predict": self.settings.LLAMA_MAX_TOKENS,
+            },
+        }
+
+        self.logger.debug("Calling remote LLaMA summarization via %s", url)
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+
+        content = (data.get("response") or "").strip()
+        if not content:
+            raise RuntimeError("Empty summary from remote LLaMA API")
+        return content
+
+    def _fallback_summary(self, text: str) -> str:
+        """Simple fallback to avoid heavy local model load if remote is unavailable."""
+        if len(text) <= 400:
+            return text
+        return text[:400].rstrip() + "..."
 
     async def _get_summarizer(self):
         if self._summarizer is None:
@@ -134,4 +193,3 @@ class TextAnalyticsService:
                         aggregation_strategy="simple",
                     )
         return self._ner
-

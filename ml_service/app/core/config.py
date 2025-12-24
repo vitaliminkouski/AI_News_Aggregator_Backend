@@ -44,15 +44,30 @@ class Settings(BaseSettings):
 
     LOGGER_NAME: str = "newsagent.ml"
 
+    # Remote LLaMA/OpenAI-compatible summarization
+    LLAMA_API_BASE: Optional[str] = Field(
+        default=None,
+        description="Base URL for LLaMA/OpenAI-compatible API (e.g., https://api.ollama.com).",
+    )
+    LLAMA_API_KEY: Optional[str] = Field(default=None, description="API key for hosted LLaMA provider.")
+    LLAMA_MODEL: Optional[str] = Field(
+        default=None,
+        description="Model id for hosted summarization (e.g., llama3.2 or meta-llama/Llama-3.1-8B-Instruct).",
+    )
+    LLAMA_MAX_TOKENS: int = Field(default=256, ge=32, le=1024)
+    LLAMA_TEMPERATURE: float = Field(default=0.2, ge=0.0, le=1.0)
+
     def pipeline_device(self) -> int:
         """Return device index expected by transformers' pipeline."""
         if self.TORCH_DEVICE.startswith("cuda"):
             return 0
         return -1
 
+    def remote_llama_enabled(self) -> bool:
+        return bool(self.LLAMA_API_BASE and self.LLAMA_API_KEY and self.LLAMA_MODEL)
+
 
 @lru_cache
 def get_settings() -> Settings:
     """Cached settings instance usable as a FastAPI dependency."""
     return Settings()
-

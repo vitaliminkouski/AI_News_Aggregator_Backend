@@ -118,12 +118,13 @@ async def process_all_sources():
                                 logger.debug(
                                     f"Assigned topic '{item['topic']}' to article {item.get('url', 'unknown')}")
 
+                        pub_dt = _to_naive_utc(item.get('published_at')) or datetime.utcnow()
                         new_article = Articles(
                             title=item['title'],
                             summary=summary_text,
                             image_url=item['image_url'],
                             url=item['url'],
-                            published_at=_to_naive_utc(item['published_at']),  # Конвертируем в naive UTC
+                            published_at=pub_dt,  # Без tzinfo
                             source_id=source.id,
                             topic_id=topic_id
                         )
@@ -198,12 +199,13 @@ async def process_user_news(user_id: int):
                                 logger.debug(
                                     f"Assigned topic '{item['topic']}' to article {item.get('url', 'unknown')}")
 
+                        pub_dt = _to_naive_utc(item.get('published_at')) or datetime.utcnow()
                         new_article = Articles(
                             title=item['title'],
                             summary=summary,
                             image_url=item['image_url'],
                             url=item['url'],
-                            published_at=_to_naive_utc(item['published_at']),  # Конвертируем в naive UTC
+                            published_at=pub_dt,  # Без tzinfo
                             source_id=source.id,
                             topic_id=topic_id
                         )
